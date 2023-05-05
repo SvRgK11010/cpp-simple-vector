@@ -26,9 +26,7 @@ public:
     SimpleVector() noexcept = default;
     
     explicit SimpleVector(size_t size)
-        :items_(size) {
-        size_ = size;
-        capacity_ = size;
+        :items_(size), size_(size), capacity_(size) {        
         std::fill(begin(), end(), Type());
     }
 
@@ -39,10 +37,8 @@ public:
 
     SimpleVector(SimpleVector&& other) {
         items_ = std::move(other.items_);
-        std::exchange(size_, other.size_);
-        std::exchange(capacity_, other.capacity_);
-        other.size_ = 0;
-        other.capacity_ = 0;
+        size_ = std::exchange(other.size_, 0);
+        capacity_ = std::exchange(other.capacity_, 0);
     }
 
     void Reserve(size_t new_capacity) {
@@ -55,10 +51,7 @@ public:
     }
     
     SimpleVector(size_t size, const Type& value)
-        :items_(size)
-    {
-        capacity_ = size;
-        size_ = size;
+        :items_(size), size_(size), capacity_(size) {
         std::fill(begin(), end(), value);
     }
 
@@ -103,10 +96,12 @@ public:
     }
 
     Type& operator[](size_t index) noexcept {
+        assert(index<size_);
         return items_[index];
     }
 
     const Type& operator[](size_t index) const noexcept {
+        assert(index < size_);
         return items_[index];
     }
         
@@ -140,16 +135,14 @@ public:
             Iterator it_end = it_begin + steps;
             std::generate(it_begin, it_end, [] { return Type{}; });
             capacity_ = std::max(new_size, capacity_ * 2);
-            size_ = new_size;
         }
         else if (new_size > size_ && new_size < capacity_) {
             Iterator it_begin = items_.Get() + size_;
             size_t steps = new_size - size_;
             Iterator it_end = it_begin + steps;
             std::generate(it_begin, it_end, [] { return Type{}; });
-            size_ = new_size;
         }
-        else if (new_size < size_) { size_ = new_size; }
+        size_ = new_size;
     }
 
     void PushBack(const Type& item) {
@@ -165,7 +158,7 @@ public:
             items_.swap(new_vec);
             new_vec[size_] = item;            
             capacity_ = new_size;
-            size_ += 1;
+            ++size_;
         }
     }
 
@@ -182,17 +175,17 @@ public:
             new_vec[size_] = std::move(item);
             items_.swap(new_vec);
             capacity_ = new_size;
-            size_ += 1;
+            ++size_;
         }
     }
 
     void PopBack() noexcept {
-        if (!IsEmpty()) {
-            --size_;
-        }
+        assert(!IsEmpty());
+        --size_;        
     }
 
     Iterator Insert(ConstIterator pos, const Type& value) {
+        assert(pos >= begin() && pos <= end());
         size_t index = pos - begin();
         if (size_ < capacity_) {
             if (pos == end()) {
@@ -297,7 +290,7 @@ inline bool operator==(const SimpleVector<Type>& lhs, const SimpleVector<Type>& 
     if (lhs.GetSize() == rhs.GetSize()) {
         return std::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
     }
-    else { return false; }
+    return false;
 }
 
 template <typename Type>
@@ -312,7 +305,7 @@ inline bool operator<(const SimpleVector<Type>& lhs, const SimpleVector<Type>& r
 
 template <typename Type>
 inline bool operator<=(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
-    return (lhs == rhs) || (lhs < rhs);
+    return !(lhs > rhs);
 }
 
 template <typename Type>
@@ -322,7 +315,7 @@ inline bool operator>(const SimpleVector<Type>& lhs, const SimpleVector<Type>& r
 
 template <typename Type>
 inline bool operator>=(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
-    return (lhs == rhs) || (rhs < lhs);
+    return !(lhs < rhs);
 }
 
 ReserveProxyObj Reserve(size_t capacity_to_reserve) {
